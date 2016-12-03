@@ -10,14 +10,15 @@ import (
   "io/ioutil"
   "net/http"
   "os"
+  "packages/config"
   "strconv"
   "strings"
   "time"
   "unicode/utf8"
 )
 
-const Threshold = 1500
-const notifyPeriod = 10
+// const Threshold = 1500
+// const notifyPeriod = 10
 const webhook = "https://hooks.slack.com/services/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"
 
 var lastNotification int64
@@ -58,7 +59,7 @@ func main() {
 
   lastNotification = time.Now().Unix()
   fmt.Println("last notification:", lastNotification)
-  fmt.Println("Co2 alerter start.. Threshold: 1500")
+  fmt.Println("Co2 alerter start.. ", config.Data)
   for {
     t := time.Now()
     m := t.Month()
@@ -75,7 +76,6 @@ func main() {
     fileName := strings.Join([]string{stringDay, "CSV"}, ".")
 
     path := strings.Join([]string{".", stringMonth, stringDay, fileName}, "/")
-    fmt.Println("Hello world: ", path)
     f, _ := os.Open(path)
 
     // Create a new reader.
@@ -86,9 +86,9 @@ func main() {
     fmt.Println(len(record))
     fmt.Println("value:", record[1])
     co2Value, _ := strconv.ParseInt(record[1], 10, 32)
-    if co2Value > Threshold {
+    if co2Value > config.Data.Treshold {
       currentTime := time.Now().Unix()
-      if currentTime-notifyPeriod > lastNotification || firstNotification == false {
+      if currentTime-config.Data.NotifyPeriod > lastNotification || firstNotification == false {
         firstNotification = true
         lastNotification = currentTime
         intCo2Value := int(co2Value)
