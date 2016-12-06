@@ -76,7 +76,7 @@ func main() {
 
     fileName := strings.Join([]string{stringDay, "CSV"}, ".")
 
-    path := strings.Join([]string{".", stringMonth, stringDay, fileName}, project.PATH_SEPARATOR)
+    path := strings.Join([]string{".", stringMonth, fileName}, project.PATH_SEPARATOR)
     f, err := os.Open(path)
     if err != nil {
       panic(err)
@@ -84,11 +84,11 @@ func main() {
 
     // Create a new reader.
     r := csv.NewReader(bufio.NewReader(f))
-    _, _ = r.Read()
-    record, _ := r.Read()
-    fmt.Println(record)
+    contents, _ := r.ReadAll()
+    record := contents[len(contents)-1]
+    fmt.Println("Record", record)
     fmt.Println(len(record))
-    fmt.Println("value:", record[1])
+    fmt.Println("value:", record[len(record)-1])
     co2Value, _ := strconv.ParseInt(record[1], 10, 32)
     intCo2Value := int(co2Value)
     if co2Value > config.Data.Treshold {
