@@ -11,6 +11,7 @@ import (
   "net/http"
   "os"
   "packages/config"
+  "project"
   "strconv"
   "strings"
   "time"
@@ -19,7 +20,6 @@ import (
 
 // const Threshold = 1500
 // const notifyPeriod = 10
-const webhook = "https://hooks.slack.com/services/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"
 
 var lastNotification int64
 
@@ -35,9 +35,9 @@ func Post(url string, json []byte) (resp *http.Response, err error) {
   return response, nil
 }
 
-func notifySlack(value string) {
+func notifySlack(value string, notificationText string) {
   fmt.Println("Co2 concentration is above threshold value..")
-  text := strings.Join([]string{"Co2 concentration is above treshold value -> ", value}, "")
+  text := strings.Join([]string{notificationText, value}, "")
   notification := Notification{text}
   fmt.Println(notification)
   json, err := json.Marshal(notification)
@@ -45,17 +45,18 @@ func notifySlack(value string) {
     fmt.Println("marshal err: ", err)
   }
   fmt.Println(string(json))
-  response, err := Post(webhook, json)
+  response, err := Post(config.Data.Notifiers.Slack.Webhook, json)
   if err != nil {
     fmt.Println(err)
   }
   toLog, _ := ioutil.ReadAll(response.Body)
   fmt.Println(string(toLog))
-  //{"text": "This is a line of text in a channel.\nAnd this is another line of text."}
 }
 
 func main() {
   firstNotification := false
+  notifying := false
+  fmt.Println("PATH_SEPARATOR:", project.PATH_SEPARATOR)
 
   lastNotification = time.Now().Unix()
   fmt.Println("last notification:", lastNotification)
@@ -75,8 +76,11 @@ func main() {
 
     fileName := strings.Join([]string{stringDay, "CSV"}, ".")
 
-    path := strings.Join([]string{".", stringMonth, stringDay, fileName}, "/")
-    f, _ := os.Open(path)
+    path := strings.Join([]string{".", stringMonth, stringDay, fileName}, project.PATH_SEPARATOR)
+    f, err := os.Open(path)
+    if err != nil {
+      panic(err)
+    }
 
     // Create a new reader.
     r := csv.NewReader(bufio.NewReader(f))
@@ -86,14 +90,18 @@ func main() {
     fmt.Println(len(record))
     fmt.Println("value:", record[1])
     co2Value, _ := strconv.ParseInt(record[1], 10, 32)
+    intCo2Value := int(co2Value)
     if co2Value > config.Data.Treshold {
+      notifying = true
       currentTime := time.Now().Unix()
       if currentTime-config.Data.NotifyPeriod > lastNotification || firstNotification == false {
         firstNotification = true
         lastNotification = currentTime
-        intCo2Value := int(co2Value)
-        notifySlack(strconv.Itoa(intCo2Value))
+        notifySlack(strconv.Itoa(intCo2Value), "Co2 concentration is above treshold value -> ")
       }
+    } else if co2Value < config.Data.LowerTreshold && notifying {
+      notifying = false
+      notifySlack(strconv.Itoa(intCo2Value), "Co2 concentration is back to normal -> ")
     }
     f.Close()
     time.Sleep(3 * time.Second)
